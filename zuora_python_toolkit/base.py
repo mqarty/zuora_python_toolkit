@@ -195,6 +195,7 @@ class Zuora(object):
 
         if z_object_type is not None:
             for i in xrange(0, object_or_id_count, batch_max):
+                # Todo: Change signature to use gevent...also, so it doesn't call Zuora right away...
                 batches.append(f(z_object_type, z_objects_or_id_list[i:self._batch_max+i]))
                     #gevent.spawn(
                         #[f(z_object_type, z_objects_or_id_list[i:self._batch_max+i])]
