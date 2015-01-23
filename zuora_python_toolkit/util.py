@@ -1,13 +1,5 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
-from os import path
-from datetime import datetime, timedelta
-import logging
-
-from suds.client import Client
-from suds.cache import FileCache
-from suds.xsd.doctor import Import, ImportDoctor
-
 
 class ZuoraError(Exception):
     pass

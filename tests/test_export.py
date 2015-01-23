@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 import unittest
 import logging
-from mock import Mock, patch
 
 from zuora_python_toolkit.export import ZuoraExport
-from zuora_python_toolkit.tests.test_base import ZuoraBaseTestCase
+from .test_base import ZuoraBaseTestCase
+
 
 logger = logging.getLogger("zuora_python_toolkit")
 suds_logger = logging.getLogger("suds.client")
@@ -14,7 +14,7 @@ suds_logger = logging.getLogger("suds.client")
 class ZuoraExportTestCase(ZuoraBaseTestCase):
 
     def setUp(self):
-        wsdl = 'apisandbox.zuora.a.63.0.wsdl'
+        wsdl = '../config/apisandbox.zuora.a.63.0.wsdl'
         username = 'api@c.co'
         password = 'Asdf1234!'
 

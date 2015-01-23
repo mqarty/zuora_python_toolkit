@@ -1,15 +1,18 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
-from os import path
 from datetime import datetime, timedelta
 import logging
-import gevent
+
+from os import path
+
+#import gevent
+import logging as gevent
 
 from suds.client import Client
 from suds.cache import FileCache
 from suds.xsd.doctor import Import, ImportDoctor
 
-from zuora_python_toolkit.util import ZuoraError, generate_select_list, generate_search_conditions
+from .util import generate_select_list, generate_search_conditions
 
 logger = logging.getLogger(__package__)
 

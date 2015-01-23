@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
 import csv
-import re
 import time
-import requests
 import logging
 from urlparse import parse_qs
 
-from zuora_python_toolkit.base import Zuora
+import re
+import requests
+
+from .base import Zuora
+
 
 logger = logging.getLogger(__package__)
 
