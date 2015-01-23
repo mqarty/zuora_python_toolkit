@@ -32,9 +32,56 @@ class ZuoraBaseTestCase(unittest.TestCase):
 
 class ZuoraClientSetupTestCase(ZuoraBaseTestCase):
 
-    def test_set_batch_size_with_tuple(self):
-        size = (8, 8)
-        self.client.set_batch_size(size)
+    def setUp(self):
+        super(ZuoraClientSetupTestCase, self).setUp()
+
+    def test_set_batch_sizes_with_valid_tuple(self):
+        min_batch = 8
+        max_batch = 8
+        sizes = (min_batch, max_batch)
+        self.client.set_batch_sizes(sizes)
+        self.assertEqual(self.client.get_batch_sizes(), (min_batch, max_batch))
+
+    def test_set_batch_sizes_with_invalid_max_value_in_tuple(self):
+        min_batch = 8
+        max_batch = 51
+        sizes = (min_batch, max_batch)
+        self.assertRaises(ValueError, self.client.set_batch_sizes, sizes)
+
+    def test_set_batch_sizes_with_invalid_min_value_in_tuple(self):
+        min_batch = 51
+        max_batch = 8
+        sizes = (min_batch, max_batch)
+        self.assertRaises(ValueError, self.client.set_batch_sizes, sizes)
+
+    def test_set_batch_sizes_with_single_value(self):
+        sizes = 22
+        default_min = self.client._default_batch_min
+        self.client.set_batch_sizes(sizes)
+        self.assertEqual(self.client.get_batch_sizes(), (default_min, sizes))
+
+    def test_set_batch_sizes_with_invalid_type(self):
+        sizes = ('A', 'B')
+        self.assertRaises(ValueError, self.client.set_batch_sizes, sizes)
+
+    def test_set_query_batch_size(self):
+        size = 22
+        self.client.set_query_batch_size(size)
+        self.assertEqual(self.client._query_batch_size_max, size)
+
+    def test_set_query_batch_size_that_exceeds_max_value(self):
+        size = 5000
+        self.assertRaises(ValueError, self.client.set_query_batch_size, size)
+
+    def test_set_query_batch_size_with_zero(self):
+        size = 0
+        self.client.set_query_batch_size(size)
+        self.assertEqual(self.client._query_batch_size_max, self.client._default_query_batch_size_max)
+
+    def test_set_query_batch_size_with_invalid_type(self):
+        size = 'A'
+        self.assertRaises(ValueError, self.client.set_query_batch_size, size)
+
 
 @patch('zuora_python_toolkit.base.Zuora.login',
        return_value={
@@ -81,12 +128,41 @@ class ZuoraRetrieveTestCase(ZuoraBaseTestCase):
         results = self.client.retrieve(z_object_type, field_list, id_list)
         print results
 
+
 class ZuoraCreateAccountTestCase(ZuoraBaseTestCase):
-    def test_create(self):
-        pass
+
+    def setUp(self):
+        super(ZuoraCreateAccountTestCase, self).setUp()
+        self.client.set_batch_sizes((5, 5))
+
+    # def test_create(self):
+    #     account = self.client.generate_object("Account")
+    #     account.Name = "zuora_python_toolkit-python-toolkit unit test"
+    #     account.AutoPay = False
+    #     account.Batch = "Batch1"
+    #     account.BillCycleDay = "1"
+    #     account.Currency = "USD"
+    #     account.PaymentTerm = "Due Upon Receipt"
+    #     account.Status = "Draft"
+    #
+    #     #result = self.client.create(account)
+    #     #self.assertTrue(result.Success)
 
     def test_create_bulk(self):
-        pass
+        accounts = []
+        for x in xrange(25):
+            account = self.client.generate_object("Account")
+            account.Name = "bulktest-%s" % x
+            account.AutoPay = False
+            account.Batch = "Batch1"
+            account.BillCycleDay = "1"
+            account.Currency = "USD"
+            account.PaymentTerm = "Due Upon Receipt"
+            account.Status = "Draft"
+            accounts.append(account)
+        results = self.client.create(accounts)
+        print results
+
 
 class testZuoraBase(ZuoraBaseTestCase):
 

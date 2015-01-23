@@ -44,10 +44,10 @@ class Zuora(object):
     client = None
 
     # Settings
-    __default_batch_min = __batch_min = 8
-    __default_batch_max = __batch_max = 50
-    __default_query_batch_size_max = __query_batch_size_max = 2000  # Batch size for query or queryMore.
-    __batch_objects = ['create', 'update', 'delete', 'amend']  # Todo: Test amend
+    _default_batch_min = _batch_min = 8
+    _default_batch_max = _batch_max = 50
+    _default_query_batch_size_max = _query_batch_size_max = 2000  # Batch size for query or queryMore.
+    _batch_objects = ['create', 'update', 'delete', 'amend']  # Todo: Test amend
 
     # Session ID and Endpoint info
     __session_id = None
@@ -89,7 +89,7 @@ class Zuora(object):
         # Set HTTP headers for logging each request
         headers = {
             'User-Agent': Zuora.__name__ + '/' + '.'.join(str(x) for x in "1.0.0"),
-            'Content-Type': 'text/xml; charset=utf-8' #Can we do json?
+            'Content-Type': 'text/xml; charset=utf-8'
         }
 
         # This HTTP header will not work until Suds gunzips/inflates the content
@@ -113,7 +113,7 @@ class Zuora(object):
             self.set_query_batch_size(kwargs['query_batch_size'])
 
         if 'batch_size' in kwargs:
-            self.set_batch_size(kwargs['batch_size'])
+            self.set_batch_sizes(kwargs['batch_size'])
 
     def query(self, query_string=None):
         """
@@ -169,57 +169,55 @@ class Zuora(object):
 
     @session_required
     def call(self, f=None, *args, **kwargs):
-
         self.set_headers(f.method.name)
-        if f.method.name in self.__batch_objects:
-            z_object_type = None
-            if isinstance(args[0], list) and len(args[0]) > self.__batch_max:
+        if f.method.name in self._batch_objects:
+            if isinstance(args[0], list) and len(args[0]) > self._batch_min:
                 z_objects_or_id_list = args[0]
-                return self.__batch()
-            elif len(args) > 1 and isinstance(args[1], list) and len(args[1] > self.__batch_max):
+                return self.__batch(f, z_objects_or_id_list)
+            elif len(args) > 1 and isinstance(args[1], list) and len(args[1] > self._batch_min):
                 z_object_type = args[0]
                 z_objects_or_id_list = args[1]
-                return self.__batch()
+                return self.__batch(f, z_objects_or_id_list, z_object_type)
         results = f(*args, **kwargs)
         if len(results) == 1:
             return results[0]
         return results
 
-        # Batch the call so we can do more than the maximum per call (which is usually 50)
-        def __batch():
-            batches = []
+    @session_required
+    def __batch(self, f, z_objects_or_id_list, z_object_type=None):
+        """ Batch the call so we can do more than the maximum per call (which is usually 50) """
+        batches = []
 
-            batch_max = self.__batch_max
-            object_or_id_count = len(z_objects_or_id_list)
+        batch_max = self._batch_max
+        object_or_id_count = len(z_objects_or_id_list)
 
-            self.logger.info("%s items requested for batching (batch size is %s)" % (object_or_id_count, batch_max) )
+        logger.info("%s items requested for batching (batch size is %s)" % (object_or_id_count, batch_max))
 
-            if z_object_type is not None:
-                for i in xrange(0, object_or_id_count, batch_max):
-                    batches.append(
-                        gevent.spawn(
-                            f(z_object_type, z_objects_or_id_list[i:self.__batch_max+i])
-                        )
-                    )
-            else:
-                for i in xrange(0, object_or_id_count, batch_max):
-                    batches.append(
-                        gevent.spawn(
-                            f(z_objects_or_id_list[i:self.__batch_max+i])
-                        )
-                    )
+        if z_object_type is not None:
+            for i in xrange(0, object_or_id_count, batch_max):
+                batches.append(f(z_object_type, z_objects_or_id_list[i:self._batch_max+i]))
+                    #gevent.spawn(
+                        #[f(z_object_type, z_objects_or_id_list[i:self._batch_max+i])]
+                    #)
+                #)
+        else:
+            for i in xrange(0, object_or_id_count, batch_max):
+                batches.append(f(z_objects_or_id_list[i:self._batch_max+i]))
+                    #gevent.spawn(
+                        #[f(z_objects_or_id_list[i:self._batch_max+i])]
+                    #)
+                #)
 
-            self.logger.info("%s items placed into %s batches" % (object_or_id_count, len(batches)) )
+        logger.info("%s items placed into %s batches" % (object_or_id_count, len(batches)))
 
-            gevent.joinall( batches, timeout=2 )
+        #gevent.joinall(batches, timeout=2)
 
-            results = [batch.value for batch in batches]
+        #results = [batch.value for batch in batches]
+        results = batches
 
-            self.logger.info("Total results...%s" % len(results))
+        logger.info("Total results...%s" % len(results))
 
-            return results
-        return __batch
-
+        return results
     # Toolkit-specific methods
     def generate_header(self, z_object_type):
         """
@@ -250,7 +248,7 @@ class Zuora(object):
         }
         if call in ('query', 'queryMore'):
             query_options = self.client.factory.create('QueryOptions')
-            query_options.batchSize = self.__query_batch_size_max
+            query_options.batchSize = self._query_batch_size_max
             headers['QueryOptions'] = query_options
 
         self.client.set_options(soapheaders=headers)
@@ -317,22 +315,42 @@ class Zuora(object):
         self.__session_header = header
 
     def set_query_batch_size(self, size):
-        if size > self.__default_query_batch_size_max:
-            raise ValueError("Max Query Batch Size must be set between 0 and %s" % self.__default_query_batch_size_max)
+        if size > self._default_query_batch_size_max:
+            raise ValueError("Max Query Batch Size must be set between 0 and %s" % self._default_query_batch_size_max)
         elif size == 0:
             return
-        self.__query_batch_size_max = size
+        try:
+            self._query_batch_size_max = int(size)
+        except TypeError:
+            raise TypeError("Query Batch Sizes must be integers set between 0 and %s" %
+                            self._default_query_batch_size_max)
 
-    def set_batch_size(self, size):
-        min_batch = self.__default_batch_min
-        max_batch = self.__default_batch_max
-        if isinstance(size, tuple):
-            min_batch, max_batch = size
+    def set_batch_sizes(self, sizes):
+        min_batch = max_batch = 0
+        if isinstance(sizes, tuple):
+            min_batch, max_batch = sizes
         else:
-            max_batch = size
-        if max_batch > self.__default_batch_max:
-            raise ValueError("Max Batch Size must be set between 0 and %s" % self.__default_batch_max)
-        if min_batch > max_batch:
-            raise ValueError("Min Batch Size must be set between 0 and %s" % self.__default_batch_max)
+            max_batch = sizes
 
-        self.__batch_min = min_batch
+        if min_batch == 0:
+            min_batch = self._default_batch_min
+        if max_batch == 0:
+            max_batch = self._default_batch_max
+
+        if min_batch > self._default_batch_max:
+            raise ValueError("Min Batch Size must be set between 0 and %s, but recommended value is %s" %
+                             (self._default_batch_max, self._default_batch_min))
+        if max_batch > self._default_batch_max:
+            raise ValueError("Max Batch Size must be set between 0 and %s" % self._default_batch_max)
+
+        self._batch_min = int(min_batch)
+        self._batch_max = int(max_batch)
+
+    def get_batch_sizes(self):
+        batch_min = self._default_batch_min
+        batch_max = self._default_batch_max
+        if self._batch_min:
+            batch_min = self._batch_min
+        if self._batch_max:
+            batch_max = self._batch_max
+        return batch_min, batch_max
