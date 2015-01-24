@@ -47,7 +47,7 @@ class Zuora(object):
     _default_batch_min = _batch_min = 8
     _default_batch_max = _batch_max = 50
     _default_query_batch_size_max = _query_batch_size_max = 2000  # Batch size for query or queryMore.
-    _batch_objects = ['create', 'update', 'delete', 'amend']  # Todo: Test amend
+    _batch_objects = ['create', 'update', 'delete', 'subscribe', 'amend']  # Todo: Test subscribe, amend
 
     # Session ID and Endpoint info
     __session_id = None
@@ -184,6 +184,22 @@ class Zuora(object):
         return results
 
     @session_required
+    def call2(self, f=None, *args, **kwargs):
+        self.set_headers(f.method.name)
+        if f.method.name in self._batch_objects:
+            if isinstance(args[0], list):
+                z_objects_or_id_list = args[0]
+                return self.b.create_or_update(f, z_objects_or_id_list)
+            elif len(args) > 1 and isinstance(args[1], list):
+                z_object_type = args[0]
+                z_objects_or_id_list = args[1]
+                return self.b.delete(f, z_object_type, z_objects_or_id_list)
+        results = f(*args, **kwargs)
+        if len(results) == 1:
+            return results[0]
+        return results
+
+    @session_required
     def __batch(self, f, z_objects_or_id_list, z_object_type=None):
         """ Batch the call so we can do more than the maximum per call (which is usually 50) """
         batches = []
@@ -197,6 +213,11 @@ class Zuora(object):
             for i in xrange(0, object_or_id_count, batch_max):
                 # Todo: Change signature to use gevent...also, so it doesn't call Zuora right away...
                 batches.append(f(z_object_type, z_objects_or_id_list[i:self._batch_max+i]))
+
+                # This way will they will need to be called in a loop
+                # batches.append((f, z_object_type, z_objects_or_id_list[i:self._batch_max+i]))
+
+
                     #gevent.spawn(
                         #[f(z_object_type, z_objects_or_id_list[i:self._batch_max+i])]
                     #)
